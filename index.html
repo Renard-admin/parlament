@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Школьный парламент</title>
+    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            200: '#bae6fd',
+                            300: '#7dd3fc',
+                            400: '#38bdf8',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .fade-in { animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .slide-in { animation: slideIn 0.3s; }
+        @keyframes slideIn { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .chat-message { max-width: 70%; }
+        @media (max-width: 768px) {
+            .chat-message { max-width: 85%; }
+            .mobile-menu { display: block; }
+            .desktop-menu { display: none; }
+        }
+        @media (min-width: 769px) {
+            .mobile-menu { display: none; }
+            .desktop-menu { display: block; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Инициализация Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyA3oMHyOjl4frLeFrVG482LgQrIxO8lppA",
+            authDomain: "parlament-1277e.firebaseapp.com",
+            projectId: "parlament-1277e",
+            storageBucket: "parlament-1277e.firebasestorage.app",
+            messagingSenderId: "599070375903",
+            appId: "1:599070375903:web:ca6f3e573c280d835f4e6a",
+            measurementId: "G-ZTMD08Z20C"
+        };
+
+        // Инициализация Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Данные для входа
+        const userCredentials = {
+            "Renard": "121212",
+            "Yrsynbet": "yrss",
+            "Olzhas": "olzh",
+            "Malika": "mlk1",
+            "Aisha": "aish",
+            "Ramin": "ramn",
+            "Faizula": "faiz"
+        };
+
+        // Данные пользователей
+        const usersData = {
+            "Yrsynbet": { role: "Президент", department: "Руководство", avatar: "👑" },
+            "Renard": { role: "Администратор", department: "Культура и творчество", avatar: "🔧" },
+            "Olzhas": { role: "Министр культуры и творчества", department: "Культура и творчество", avatar: "🎨" },
+            "Malika": { role: "Координатор", department: "Дисциплина и школьная среда", avatar: "📏" },
+            "Aisha": { role: "Координатор", department: "Дисциплина и школьная среда", avatar: "💼" },
+            "Ramin": { role: "Министр спорта", department: "Спорт", avatar: "⚽" },
+            "Faizula": { role: "Координатор", department: "Спорт", avatar: "🏆" }
+        };
+
+        // Основной компонент приложения
+        function App() {
+            const [currentUser, setCurrentUser] = React.useState(null);
+            const [activeTab, setActiveTab] = React.useState('home');
+            const [events, setEvents] = React.useState([]);
+            const [projects, setProjects] = React.useState([]);
+            const [announcements, setAnnouncements] = React.useState([]);
+            const [chatModalOpen, setChatModalOpen] = React.useState(false);
+            const [newMessage, setNewMessage] = React.useState('');
+            const [messages, setMessages] = React.useState([]);
+            const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
+            // Загрузка данных из Firebase
+            React.useEffect(() => {
+                if (currentUser) {
+                    loadEvents();
+                    loadProjects();
+                    loadAnnouncements();
+                    loadMessages();
+                }
+            }, [currentUser]);
+
+            // Загрузка мероприятий
+            const loadEvents = async () => {
+                try {
+                    const snapshot = await db.collection('events').orderBy('date').get();
+                    const eventsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setEvents(eventsData);
+                } catch (error) {
+                    console.error("Ошибка загрузки мероприятий:", error);
+                }
+            };
+
+            // Загрузка проектов
+            const loadProjects = async () => {
+                try {
+                    const snapshot = await db.collection('projects').get();
+                    const projectsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setProjects(projectsData);
+                } catch (error) {
+                    console.error("Ошибка загрузки проектов:", error);
+                }
+            };
+
+            // Загрузка объявлений
+            const loadAnnouncements = async () => {
+                try {
+                    const snapshot = await db.collection('announcements').orderBy('date', 'desc').get();
+                    const announcementsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setAnnouncements(announcementsData);
+                } catch (error) {
+                    console.error("Ошибка загрузки объявлений:", error);
+                }
+            };
+
+            // Загрузка сообщений чата
+            const loadMessages = async () => {
+                try {
+                    const snapshot = await db.collection('chatMessages')
+                        .orderBy('timestamp')
+                        .limit(100)
+                        .get();
+                    const messagesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    setMessages(messagesData);
+                } catch (error) {
+                    console.error("Ошибка загрузки сообщений:", error);
+                }
+            };
+
+            // Слушатель реального времени для чата
+            React.useEffect(() => {
+                if (!currentUser) return;
+
+                const unsubscribe = db.collection('chatMessages')
+                    .orderBy('timestamp')
+                    .limit(100)
+                    .onSnapshot(snapshot => {
+                        const messagesData = snapshot.docs.map(doc => ({ 
+                            id: doc.id, 
+                            ...doc.data(),
+                            timestamp: doc.data().timestamp?.toDate?.() || new Date()
+                        }));
+                        setMessages(messagesData);
+                    }, error => {
+                        console.error("Ошибка слушателя чата:", error);
+                    });
+
+                return () => unsubscribe();
+            }, [currentUser]);
+
+            // Обработчик входа
+            const handleLogin = (username, password) => {
+                if (userCredentials[username] && userCredentials[username] === password) {
+                    setCurrentUser(username);
+                    return true;
+                }
+                return false;
+            };
+
+            // Обработчик выхода
+            const handleLogout = () => {
+                setCurrentUser(null);
+                setActiveTab('home');
+                setMobileMenuOpen(false);
+            };
+
+            // Добавление нового мероприятия
+            const addEvent = async (event) => {
+                try {
+                    const docRef = await db.collection('events').add({
+                        ...event,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdBy: currentUser
+                    });
+                    
+                    // Обновляем локальное состояние
+                    setEvents(prev => [...prev, { id: docRef.id, ...event }]);
+                } catch (error) {
+                    console.error("Ошибка добавления мероприятия:", error);
+                }
+            };
+
+            // Редактирование мероприятия
+            const editEvent = async (id, updatedEvent) => {
+                try {
+                    await db.collection('events').doc(id).update(updatedEvent);
+                    setEvents(events.map(event => 
+                        event.id === id ? { ...event, ...updatedEvent } : event
+                    ));
+                } catch (error) {
+                    console.error("Ошибка редактирования мероприятия:", error);
+                }
+            };
+
+            // Удаление мероприятия
+            const deleteEvent = async (id) => {
+                try {
+                    await db.collection('events').doc(id).delete();
+                    setEvents(events.filter(event => event.id !== id));
+                } catch (error) {
+                    console.error("Ошибка удаления мероприятия:", error);
+                }
+            };
+
+            // Добавление нового проекта
+            const addProject = async (project) => {
+                try {
+                    const newProject = {
+                        ...project,
+                        progress: 0,
+                        steps: [],
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        createdBy: currentUser
+                    };
+                    
+                    const docRef = await db.collection('projects').add(newProject);
+                    setProjects([...projects, { id: docRef.id, ...newProject }]);
+                } catch (error) {
+                    console.error("Ошибка добавления проекта:", error);
+                }
+            };
+
+            // Редактирование проекта
+            const editProject = async (id, updatedProject) => {
+                try {
+                    await db.collection('projects').doc(id).update(updatedProject);
+                    setProjects(projects.map(project => 
+                        project.id === id ? { ...project, ...updatedProject } : project
+                    ));
+                } catch (error) {
+                    console.error("Ошибка редактирования проекта:", error);
+                }
+            };
+
+            // Удаление проекта
+            const deleteProject = async (id) => {
+                try {
+                    await db.collection('projects').doc(id).delete();
+                    setProjects(projects.filter(project => project.id !== id));
+                } catch (error) {
+                    console.error("Ошибка удаления проекта:", error);
+                }
+            };
+
+            // Добавление шага к проекту
+            const addStepToProject = async (projectId, step) => {
+                try {
+                    const project = projects.find(p => p.id === projectId);
+                    if (!project) return;
+
+                    const newStep = {
+                        id: project.steps.length + 1,
+                        ...step,
+                        completed: false
+                    };
+                    
+                    const updatedSteps = [...project.steps, newStep];
+                    const completedSteps = updatedSteps.filter(step => step.completed).length;
+                    const progress = Math.round((completedSteps / updatedSteps.length) * 100);
+                    
+                    const updatedProject = {
+                        ...project,
+                        steps: updatedSteps,
+                        progress: progress
+                    };
+                    
+                    await db.collection('projects').doc(projectId).update({
+                        steps: updatedSteps,
+                        progress: progress
+                    });
+                    
+                    setProjects(projects.map(p => p.id === projectId ? updatedProject : p));
+                } catch (error) {
+                    console.error("Ошибка добавления шага:", error);
+                }
+            };
+
+            // Переключение статуса шага проекта
+            const toggleStepStatus = async (projectId, stepId) => {
+                try {
+                    const project = projects.find(p => p.id === projectId);
+                    if (!project) return;
+
+                    const updatedSteps = project.steps.map(step => 
+                        step.id === stepId ? { ...step, completed: !step.completed } : step
+                    );
+                    const completedSteps = updatedSteps.filter(step => step.completed).length;
+                    const progress = updatedSteps.length > 0 ? Math.round((completedSteps / updatedSteps.length) * 100) : 0;
+                    
+                    await db.collection('projects').doc(projectId).update({
+                        steps: updatedSteps,
+                        progress: progress
+                    });
+                    
+                    setProjects(projects.map(p => 
+                        p.id === projectId ? { ...p, steps: updatedSteps, progress: progress } : p
+                    ));
+                } catch (error) {
+                    console.error("Ошибка изменения статуса шага:", error);
+                }
+            };
+
+            // Удаление шага проекта
+            const deleteStep = async (projectId, stepId) => {
+                try {
+                    const project = projects.find(p => p.id === projectId);
+                    if (!project) return;
+
+                    const updatedSteps = project.steps.filter(step => step.id !== stepId);
+                    const completedSteps = updatedSteps.filter(step => step.completed).length;
+                    const progress = updatedSteps.length > 0 ? Math.round((completedSteps / updatedSteps.length) * 100) : 0;
+                    
+                    await db.collection('projects').doc(projectId).update({
+                        steps: updatedSteps,
+                        progress: progress
+                    });
+                    
+                    setProjects(projects.map(p => 
+                        p.id === projectId ? { ...p, steps: updatedSteps, progress: progress } : p
+                    ));
+                } catch (error) {
+                    console.error("Ошибка удаления шага:", error);
+                }
+            };
+
+            // Добавление нового объявления
+            const addAnnouncement = async (announcement) => {
+                try {
+                    const newAnnouncement = {
+                        ...announcement,
+                        author: currentUser,
+                        date: new Date().toISOString().split('T')[0],
+                        pinned: false,
+                        completed: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+                    
+                    const docRef = await db.collection('announcements').add(newAnnouncement);
+                    setAnnouncements([{ id: docRef.id, ...newAnnouncement }, ...announcements]);
+                } catch (error) {
+                    console.error("Ошибка добавления объявления:", error);
+                }
+            };
+
+            // Переключение статуса объявления
+            const toggleAnnouncementStatus = async (id) => {
+                try {
+                    const announcement = announcements.find(a => a.id === id);
+                    if (!announcement) return;
+
+                    const updated = { ...announcement, completed: !announcement.completed };
+                    await db.collection('announcements').doc(id).update({ completed: updated.completed });
+                    
+                    setAnnouncements(announcements.map(a => 
+                        a.id === id ? updated : a
+                    ));
+                } catch (error) {
+                    console.error("Ошибка изменения статуса объявления:", error);
+                }
+            };
+
+            // Закрепление/открепление объявления
+            const togglePinAnnouncement = async (id) => {
+                try {
+                    const announcement = announcements.find(a => a.id === id);
+                    if (!announcement) return;
+
+                    const updated = { ...announcement, pinned: !announcement.pinned };
+                    await db.collection('announcements').doc(id).update({ pinned: updated.pinned });
+                    
+                    setAnnouncements(announcements.map(a => 
+                        a.id === id ? updated : a
+                    ));
+                } catch (error) {
+                    console.error("Ошибка закрепления объявления:", error);
+                }
+            };
+
+            // Отправка сообщения в чат
+            const sendMessage = async () => {
+                if (newMessage.trim() === '') return;
+                
+                try {
+                    await db.collection('chatMessages').add({
+                        sender: currentUser,
+                        text: newMessage,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                        username: currentUser
+                    });
+                    
+                    setNewMessage('');
+                } catch (error) {
+                    console.error("Ошибка отправки сообщения:", error);
+                }
+            };
+
+            // Проверка прав администратора
+            const isAdmin = () => {
+                return currentUser === "Renard";
+            };
+
+            // Если пользователь не авторизован, показываем экран входа
+            if (!currentUser) {
+                return <LoginScreen onLogin={handleLogin} />;
+            }
+
+            return (
+                <div className="min-h-screen bg-gray-50">
+                    {/* Шапка */}
+                    <header className="bg-white shadow-sm">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex justify-between items-center py-4">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0">
+                                        <i className="fas fa-school text-primary-600 text-2xl"></i>
+                                    </div>
+                                    <div className="ml-4">
+                                        <h1 className="text-xl font-bold text-gray-900">Школьный парламент</h1>
+                                        <p className="text-sm text-gray-500">
+                                            {usersData[currentUser]?.role} - {currentUser}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center space-x-4">
+                                    <button 
+                                        onClick={() => setChatModalOpen(true)}
+                                        className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg flex items-center"
+                                    >
+                                        <i className="fas fa-comments mr-2"></i>
+                                        <span className="hidden sm:inline">Чат</span>
+                                    </button>
+                                    <button 
+                                        onClick={handleLogout}
+                                        className="text-gray-500 hover:text-gray-700 flex items-center"
+                                    >
+                                        <i className="fas fa-sign-out-alt mr-2"></i>
+                                        <span className="hidden sm:inline">Выйти</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                        className="md:hidden text-gray-500 hover:text-gray-700"
+                                    >
+                                        <i className="fas fa-bars"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    {/* Навигация для десктопа */}
+                    <nav className="bg-white shadow-sm border-b desktop-menu">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex justify-between">
+                                <div className="flex space-x-8">
+                                    {['home', 'calendar', 'projects', 'announcements', 'structure', 'management'].map(tab => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveTab(tab)}
+                                            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                                                activeTab === tab
+                                                ? 'border-primary-500 text-primary-600'
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                            }`}
+                                        >
+                                            {getTabName(tab)}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </nav>
+
+                    {/* Навигация для мобильных */}
+                    {mobileMenuOpen && (
+                        <div className="bg-white shadow-md mobile-menu">
+                            <div className="px-2 pt-2 pb-3 space-y-1">
+                                {['home', 'calendar', 'projects', 'announcements', 'structure', 'management'].map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => {
+                                            setActiveTab(tab);
+                                            setMobileMenuOpen(false);
+                                        }}
+                                        className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${
+                                            activeTab === tab
+                                            ? 'bg-primary-50 text-primary-700'
+                                            : 'text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                    >
+                                        {getTabName(tab)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Основной контент */}
+                    <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                        <div className="px-4 py-6 sm:px-0">
+                            {activeTab === 'home' && <HomeTab currentUser={currentUser} usersData={usersData} events={events} />}
+                            {activeTab === 'calendar' && <CalendarTab events={events} onAddEvent={addEvent} onEditEvent={editEvent} onDeleteEvent={deleteEvent} currentUser={currentUser} isAdmin={true} />}
+                            {activeTab === 'projects' && <ProjectsTab projects={projects} onAddProject={addProject} onEditProject={editProject} onDeleteProject={deleteProject} onAddStep={addStepToProject} onToggleStep={toggleStepStatus} onDeleteStep={deleteStep} currentUser={currentUser} isAdmin={true} usersData={usersData} />}
+                            {activeTab === 'announcements' && <AnnouncementsTab announcements={announcements} onAddAnnouncement={addAnnouncement} onToggleStatus={toggleAnnouncementStatus} onTogglePin={togglePinAnnouncement} currentUser={currentUser} isAdmin={true} />}
+                            {activeTab === 'structure' && <StructureTab usersData={usersData} />}
+                            {activeTab === 'management' && <ManagementTab isAdmin={isAdmin()} usersData={usersData} />}
+                        </div>
+                    </main>
+
+                    {/* Модальное окно чата */}
+                    {chatModalOpen && (
+                        <ChatModal 
+                            messages={messages} 
+                            newMessage={newMessage}
+                            onNewMessageChange={setNewMessage}
+                            onSendMessage={sendMessage}
+                            onClose={() => setChatModalOpen(false)}
+                            currentUser={currentUser}
+                        />
+                    )}
+                </div>
+            );
+        }
+
+        // Компонент экрана входа
+        function LoginScreen({ onLogin }) {
+            const [username, setUsername] = React.useState('');
+            const [password, setPassword] = React.useState('');
+            const [error, setError] = React.useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (onLogin(username, password)) {
+                    setError('');
+                } else {
+                    setError('Неверный логин или пароль');
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 py-12 px-4 sm:px-6 lg:px-8">
+                    <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+                        <div>
+                            <div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-primary-100">
+                                <i className="fas fa-school text-primary-600 text-2xl"></i>
+                            </div>
+                            <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                                Школьный парламент
+                            </h2>
+                            <p className="mt-2 text-center text-sm text-gray-600">
+                                Войдите в свою учетную запись
+                            </p>
+                        </div>
+                        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+                            <div className="rounded-md shadow-sm -space-y-px">
+                                <div>
+                                    <label htmlFor="username" className="sr-only">Логин</label>
+                                    <input
+                                        id="username"
+                                        name="username"
+                                        type="text"
+                                        required
+                                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                                        placeholder="Логин"
+                                        value={username}
+                                        onChange={(e) => setUsername(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="password" className="sr-only">Пароль</label>
+                                    <input
+                                        id="password"
+                                        name="password"
+                                        type="password"
+                                        required
+                                        className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
+                                        placeholder="Пароль"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+
+                            {error && (
+                                <div className="text-red-600 text-sm text-center">{error}</div>
+                            )}
+
+                            <div>
+                                <button
+                                    type="submit"
+                                    className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                >
+                                    Войти
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // Компонент главной страницы
+        function HomeTab({ currentUser, usersData, events }) {
+            const upcomingEvents = events.filter(event => 
+                new Date(event.date) >= new Date()
+            ).slice(0, 3);
+
+            return (
+                <div className="fade-in">
+                    <div className="bg-white overflow-hidden shadow rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                            <div className="flex items-center">
+                                <div className="flex-shrink-0 bg-primary-100 rounded-md p-3">
+                                    <i className="fas fa-user text-primary-600 text-2xl"></i>
+                                </div>
+                                <div className="ml-5 w-0 flex-1">
+                                    <dl>
+                                        <dt className="text-sm font-medium text-gray-500 truncate">Добро пожаловать</dt>
+                                        <dd>
+                                            <div className="text-lg font-medium text-gray-900">{currentUser}</div>
+                                            <div className="text-sm text-gray-500">{usersData[currentUser]?.role}</div>
+                                        </dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="bg-white overflow-hidden shadow rounded-lg">
+                            <div className="px-4 py-5 sm:p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0 bg-indigo-100 rounded-md p-3">
+                                        <i className="fas fa-calendar-alt text-indigo-600 text-xl"></i>
+                                    </div>
+                                    <div className="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt className="text-sm font-medium text-gray-500 truncate">Ближайшие мероприятия</dt>
+                                            <dd className="text-lg font-medium text-gray-900">{upcomingEvents.length}</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white overflow-hidden shadow rounded-lg">
+                            <div className="px-4 py-5 sm:p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
+                                        <i className="fas fa-tasks text-green-600 text-xl"></i>
+                                    </div>
+                                    <div className="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt className="text-sm font-medium text-gray-500 truncate">Активные проекты</dt>
+                                            <dd className="text-lg font-medium text-gray-900">0</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white overflow-hidden shadow rounded-lg">
+                            <div className="px-4 py-5 sm:p-6">
+                                <div className="flex items-center">
+                                    <div className="flex-shrink-0 bg-yellow-100 rounded-md p-3">
+                                        <i className="fas fa-bullhorn text-yellow-600 text-xl"></i>
+                                    </div>
+                                    <div className="ml-5 w-0 flex-1">
+                                        <dl>
+                                            <dt className="text-sm font-medium text-gray-500 truncate">Новые объявления</dt>
+                                            <dd className="text-lg font-medium text-gray-900">0</dd>
+                                        </dl>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {upcomingEvents.length > 0 && (
+                        <div className="mt-8">
+                            <h2 className="text-lg font-medium text-gray-900 mb-4">Ближайшие мероприятия</h2>
+                            <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                                <ul className="divide-y divide-gray-200">
+                                    {upcomingEvents.map((event) => (
+                                        <li key={event.id}>
+                                            <div className="px-4 py-4 flex items-center sm:px-6">
+                                                <div className="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
+                                                    <div className="truncate">
+                                                        <div className="flex text-sm">
+                                                            <p className="font-medium text-primary-600 truncate">{event.title}</p>
+                                                            <p className="ml-1 flex-shrink-0 font-normal text-gray-500">
+                                                                {formatDate(event.date)}
+                                                            </p>
+                                                        </div>
+                                                        <div className="mt-2 flex">
+                                                            <div className="flex items-center text-sm text-gray-500">
+                                                                <i className="fas fa-clock mr-1.5 text-gray-400"></i>
+                                                                <p>{event.time} - {event.location}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="ml-5 flex-shrink-0">
+                                                    <i className="fas fa-chevron-right text-gray-400"></i>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // Компонент календаря мероприятий
+        function CalendarTab({ events, onAddEvent, onEditEvent, onDeleteEvent, currentUser, isAdmin }) {
+            const [showAddForm, setShowAddForm] = React.useState(false);
+            const [editingEvent, setEditingEvent] = React.useState(null);
+            const [newEvent, setNewEvent] = React.useState({
+                title: '',
+                date: '',
+                time: '',
+                location: '',
+                description: ''
+            });
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (editingEvent) {
+                    onEditEvent(editingEvent.id, newEvent);
+                    setEditingEvent(null);
+                } else {
+                    onAddEvent(newEvent);
+                }
+                setNewEvent({
+                    title: '',
+                    date: '',
+                    time: '',
+                    location: '',
+                    description: ''
+                });
+                setShowAddForm(false);
+            };
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setNewEvent({
+                    ...newEvent,
+                    [name]: value
+                });
+            };
+
+            const handleEdit = (event) => {
+                setEditingEvent(event);
+                setNewEvent({
+                    title: event.title,
+                    date: event.date,
+                    time: event.time,
+                    location: event.location,
+                    description: event.description || ''
+                });
+                setShowAddForm(true);
+            };
+
+            const handleDelete = (id) => {
+                if (window.confirm("Вы уверены, что хотите удалить это мероприятие?")) {
+                    onDeleteEvent(id);
+                }
+            };
+
+            const cancelEdit = () => {
+                setEditingEvent(null);
+                setNewEvent({
+                    title: '',
+                    date: '',
+                    time: '',
+                    location: '',
+                    description: ''
+                });
+                setShowAddForm(false);
+            };
+
+            return (
+                <div className="fade-in">
+                    <div className="md:flex md:items-center md:justify-between mb-6">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Календарь мероприятий</h2>
+                        </div>
+                        {isAdmin && (
+                            <div className="mt-4 flex md:mt-0 md:ml-4">
+                                <button
+                                    type="button"
+                                    className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                    onClick={() => setShowAddForm(true)}
+                                >
+                                    <i className="fas fa-plus mr-2"></i>
+                                    Добавить мероприятие
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {(showAddForm || editingEvent) && (
+                        <div className="bg-white shadow sm:rounded-lg mb-6 slide-in">
+                            <div className="px-4 py-5 sm:p-6">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                    {editingEvent ? 'Редактировать мероприятие' : 'Добавить мероприятие'}
+                                </h3>
+                                <form onSubmit={handleSubmit}>
+                                    <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                                        <div className="sm:col-span-4">
+                                            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                                                Название мероприятия
+                                            </label>
+                                            <div className="mt-1">
+                                                <input
+                                                    type="text"
+                                                    name="title"
+                                                    id="title"
+                                                    required
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newEvent.title}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-3">
+                                            <label htmlFor="date" className="block text-sm font-medium text-gray-700">
+                                                Дата
+                                            </label>
+                                            <div className="mt-1">
+                                                <input
+                                                    type="date"
+                                                    name="date"
+                                                    id="date"
+                                                    required
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newEvent.date}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-3">
+                                            <label htmlFor="time" className="block text-sm font-medium text-gray-700">
+                                                Время
+                                            </label>
+                                            <div className="mt-1">
+                                                <input
+                                                    type="time"
+                                                    name="time"
+                                                    id="time"
+                                                    required
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newEvent.time}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-4">
+                                            <label htmlFor="location" className="block text-sm font-medium text-gray-700">
+                                                Место проведения
+                                            </label>
+                                            <div className="mt-1">
+                                                <input
+                                                    type="text"
+                                                    name="location"
+                                                    id="location"
+                                                    required
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newEvent.location}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-6">
+                                            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                                                Описание
+                                            </label>
+                                            <div className="mt-1">
+                                                <textarea
+                                                    id="description"
+                                                    name="description"
+                                                    rows={3}
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+                                                    value={newEvent.description}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-5 flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                            onClick={cancelEdit}
+                                        >
+                                            Отмена
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                        >
+                                            {editingEvent ? 'Сохранить изменения' : 'Сохранить'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                        <ul className="divide-y divide-gray-200">
+                            {events.map((event) => (
+                                <li key={event.id}>
+                                    <div className="px-4 py-4 flex items-center sm:px-6">
+                                        <div className="min-w-0 flex-1 sm:flex sm:items-center sm:justify-between">
+                                            <div className="truncate">
+                                                <div className="flex text-sm">
+                                                    <p className="font-medium text-primary-600 truncate">{event.title}</p>
+                                                    <p className="ml-1 flex-shrink-0 font-normal text-gray-500">
+                                                        {formatDate(event.date)}
+                                                    </p>
+                                                </div>
+                                                <div className="mt-2 flex">
+                                                    <div className="flex items-center text-sm text-gray-500">
+                                                        <i className="fas fa-clock mr-1.5 text-gray-400"></i>
+                                                        <p>{event.time} - {event.location}</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="ml-5 flex-shrink-0 flex space-x-2">
+                                            {isAdmin && (
+                                                <>
+                                                    <button
+                                                        onClick={() => handleEdit(event)}
+                                                        className="text-primary-600 hover:text-primary-900"
+                                                        title="Редактировать"
+                                                    >
+                                                        <i className="fas fa-edit"></i>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDelete(event.id)}
+                                                        className="text-red-600 hover:text-red-900"
+                                                        title="Удалить"
+                                                    >
+                                                        <i className="fas fa-trash"></i>
+                                                    </button>
+                                                </>
+                                            )}
+                                            <i className="fas fa-chevron-right text-gray-400"></i>
+                                        </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            );
+        }
+
+        // Компонент проектов
+        function ProjectsTab({ projects, onAddProject, onEditProject, onDeleteProject, onAddStep, onToggleStep, onDeleteStep, currentUser, isAdmin, usersData }) {
+            const [showAddForm, setShowAddForm] = React.useState(false);
+            const [editingProject, setEditingProject] = React.useState(null);
+            const [newProject, setNewProject] = React.useState({
+                title: '',
+                description: '',
+                status: 'Планирование',
+                lead: currentUser,
+                team: [currentUser]
+            });
+            const [newStep, setNewStep] = React.useState({});
+            const [showStepForm, setShowStepForm] = React.useState({});
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (editingProject) {
+                    onEditProject(editingProject.id, newProject);
+                    setEditingProject(null);
+                } else {
+                    onAddProject(newProject);
+                }
+                setNewProject({
+                    title: '',
+                    description: '',
+                    status: 'Планирование',
+                    lead: currentUser,
+                    team: [currentUser]
+                });
+                setShowAddForm(false);
+            };
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setNewProject({
+                    ...newProject,
+                    [name]: value
+                });
+            };
+
+            const handleTeamChange = (e) => {
+                const options = e.target.options;
+                const selectedTeam = [];
+                for (let i = 0; i < options.length; i++) {
+                    if (options[i].selected) {
+                        selectedTeam.push(options[i].value);
+                    }
+                }
+                setNewProject({
+                    ...newProject,
+                    team: selectedTeam
+                });
+            };
+
+            const handleEdit = (project) => {
+                setEditingProject(project);
+                setNewProject({
+                    title: project.title,
+                    description: project.description,
+                    status: project.status,
+                    lead: project.lead,
+                    team: project.team
+                });
+                setShowAddForm(true);
+            };
+
+            const handleDelete = (id) => {
+                if (window.confirm("Вы уверены, что хотите удалить этот проект?")) {
+                    onDeleteProject(id);
+                }
+            };
+
+            const cancelEdit = () => {
+                setEditingProject(null);
+                setNewProject({
+                    title: '',
+                    description: '',
+                    status: 'Планирование',
+                    lead: currentUser,
+                    team: [currentUser]
+                });
+                setShowAddForm(false);
+            };
+
+            const handleAddStep = (projectId, e) => {
+                e.preventDefault();
+                if (newStep[projectId] && newStep[projectId].title) {
+                    onAddStep(projectId, { title: newStep[projectId].title });
+                    setNewStep({
+                        ...newStep,
+                        [projectId]: { title: '' }
+                    });
+                    setShowStepForm({
+                        ...showStepForm,
+                        [projectId]: false
+                    });
+                }
+            };
+
+            const handleStepChange = (projectId, value) => {
+                setNewStep({
+                    ...newStep,
+                    [projectId]: { title: value }
+                });
+            };
+
+            const toggleStepForm = (projectId) => {
+                setShowStepForm({
+                    ...showStepForm,
+                    [projectId]: !showStepForm[projectId]
+                });
+            };
+
+            const getStatusColor = (status) => {
+                switch (status) {
+                    case 'Завершен': return 'bg-green-100 text-green-800';
+                    case 'В процессе': return 'bg-blue-100 text-blue-800';
+                    case 'Планирование': return 'bg-yellow-100 text-yellow-800';
+                    default: return 'bg-gray-100 text-gray-800';
+                }
+            };
+
+            const canEditProject = (project) => {
+                return isAdmin || project.team.includes(currentUser);
+            };
+
+            return (
+                <div className="fade-in">
+                    <div className="md:flex md:items-center md:justify-between mb-6">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Проекты участников</h2>
+                        </div>
+                        {isAdmin && (
+                            <div className="mt-4 flex md:mt-0 md:ml-4">
+                                <button
+                                    type="button"
+                                    className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                    onClick={() => setShowAddForm(true)}
+                                >
+                                    <i className="fas fa-plus mr-2"></i>
+                                    Добавить проект
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {(showAddForm || editingProject) && (
+                        <div className="bg-white shadow sm:rounded-lg mb-6 slide-in">
+                            <div className="px-4 py-5 sm:p-6">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+                                    {editingProject ? 'Редактировать проект' : 'Добавить проект'}
+                                </h3>
+                                <form onSubmit={handleSubmit}>
+                                    <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                                        <div className="sm:col-span-4">
+                                            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                                                Название проекта
+                                            </label>
+                                            <div className="mt-1">
+                                                <input
+                                                    type="text"
+                                                    name="title"
+                                                    id="title"
+                                                    required
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newProject.title}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-6">
+                                            <label htmlFor="description" className="block text-sm font-medium text-gray-700">
+                                                Описание
+                                            </label>
+                                            <div className="mt-1">
+                                                <textarea
+                                                    id="description"
+                                                    name="description"
+                                                    rows={3}
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+                                                    value={newProject.description}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-3">
+                                            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                                                Статус
+                                            </label>
+                                            <div className="mt-1">
+                                                <input
+                                                    type="text"
+                                                    name="status"
+                                                    id="status"
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newProject.status}
+                                                    onChange={handleChange}
+                                                    placeholder="Введите статус проекта"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-3">
+                                            <label htmlFor="lead" className="block text-sm font-medium text-gray-700">
+                                                Главный ответственный
+                                            </label>
+                                            <div className="mt-1">
+                                                <select
+                                                    id="lead"
+                                                    name="lead"
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newProject.lead}
+                                                    onChange={handleChange}
+                                                >
+                                                    {Object.keys(usersData).map(user => (
+                                                        <option key={user} value={user}>{user}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-6">
+                                            <label htmlFor="team" className="block text-sm font-medium text-gray-700">
+                                                Команда (можно выбрать несколько)
+                                            </label>
+                                            <div className="mt-1">
+                                                <select
+                                                    multiple
+                                                    id="team"
+                                                    name="team"
+                                                    size={5}
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newProject.team}
+                                                    onChange={handleTeamChange}
+                                                >
+                                                    {Object.keys(usersData).map(user => (
+                                                        <option key={user} value={user}>{user}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <p className="mt-1 text-sm text-gray-500">Удерживайте Ctrl для выбора нескольких участников</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-5 flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                            onClick={cancelEdit}
+                                        >
+                                            Отмена
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                        >
+                                            {editingProject ? 'Сохранить изменения' : 'Сохранить'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="grid gap-5 mb-8 md:grid-cols-2 xl:grid-cols-3">
+                        {projects.map((project) => (
+                            <div key={project.id} className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                                <div className="p-5">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <h3 className="text-lg font-bold text-gray-900">{project.title}</h3>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
+                                            {project.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-gray-600 mb-4">{project.description}</p>
+                                    
+                                    <div className="mb-4">
+                                        <div className="flex justify-between text-sm text-gray-500 mb-1">
+                                            <span>Прогресс</span>
+                                            <span>{project.progress}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div 
+                                                className="bg-primary-600 h-2 rounded-full" 
+                                                style={{ width: `${project.progress}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mb-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <h4 className="text-sm font-medium text-gray-700">Шаги проекта</h4>
+                                            {canEditProject(project) && (
+                                                <button
+                                                    onClick={() => toggleStepForm(project.id)}
+                                                    className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                                                >
+                                                    {showStepForm[project.id] ? 'Отмена' : '+ Добавить шаг'}
+                                                </button>
+                                            )}
+                                        </div>
+                                        
+                                        {showStepForm[project.id] && (
+                                            <form onSubmit={(e) => handleAddStep(project.id, e)} className="mb-3 flex">
+                                                <input
+                                                    type="text"
+                                                    className="flex-1 border border-gray-300 rounded-l-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                                                    placeholder="Название шага"
+                                                    value={newStep[project.id]?.title || ''}
+                                                    onChange={(e) => handleStepChange(project.id, e.target.value)}
+                                                />
+                                                <button
+                                                    type="submit"
+                                                    className="bg-primary-600 text-white px-3 py-2 rounded-r-md text-sm hover:bg-primary-700"
+                                                >
+                                                    Добавить
+                                                </button>
+                                            </form>
+                                        )}
+                                        
+                                        <ul className="space-y-2">
+                                            {project.steps && project.steps.map((step) => (
+                                                <li key={step.id} className="flex items-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={step.completed}
+                                                        onChange={() => onToggleStep(project.id, step.id)}
+                                                        disabled={!canEditProject(project)}
+                                                        className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                                                    />
+                                                    <span className={`ml-2 text-sm ${step.completed ? 'line-through text-gray-500' : 'text-gray-700'}`}>
+                                                        {step.title}
+                                                    </span>
+                                                    {canEditProject(project) && (
+                                                        <button
+                                                            onClick={() => onDeleteStep(project.id, step.id)}
+                                                            className="ml-auto text-red-500 hover:text-red-700"
+                                                        >
+                                                            <i className="fas fa-times"></i>
+                                                        </button>
+                                                    )}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-sm text-gray-500">Ответственный</p>
+                                            <p className="text-sm font-medium">{project.lead}</p>
+                                        </div>
+                                        <div className="flex -space-x-2">
+                                            {project.team && project.team.map((member, index) => (
+                                                <div 
+                                                    key={index}
+                                                    className="inline-block h-8 w-8 rounded-full bg-primary-100 text-primary-800 text-sm flex items-center justify-center font-medium border-2 border-white"
+                                                    title={member}
+                                                >
+                                                    {member.charAt(0)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    
+                                    {canEditProject(project) && (
+                                        <div className="mt-4 flex justify-end space-x-2">
+                                            <button
+                                                onClick={() => handleEdit(project)}
+                                                className="text-primary-600 hover:text-primary-800 text-sm font-medium"
+                                            >
+                                                Редактировать
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(project.id)}
+                                                className="text-red-600 hover:text-red-800 text-sm font-medium"
+                                            >
+                                                Удалить
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // Компонент доски объявлений
+        function AnnouncementsTab({ announcements, onAddAnnouncement, onToggleStatus, onTogglePin, currentUser, isAdmin }) {
+            const [showAddForm, setShowAddForm] = React.useState(false);
+            const [newAnnouncement, setNewAnnouncement] = React.useState({
+                title: '',
+                content: ''
+            });
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onAddAnnouncement(newAnnouncement);
+                setNewAnnouncement({
+                    title: '',
+                    content: ''
+                });
+                setShowAddForm(false);
+            };
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setNewAnnouncement({
+                    ...newAnnouncement,
+                    [name]: value
+                });
+            };
+
+            // Сначала закрепленные, потом обычные
+            const sortedAnnouncements = [...announcements].sort((a, b) => {
+                if (a.pinned && !b.pinned) return -1;
+                if (!a.pinned && b.pinned) return 1;
+                return new Date(b.date) - new Date(a.date);
+            });
+
+            return (
+                <div className="fade-in">
+                    <div className="md:flex md:items-center md:justify-between mb-6">
+                        <div className="flex-1 min-w-0">
+                            <h2 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Доска объявлений</h2>
+                        </div>
+                        <div className="mt-4 flex md:mt-0 md:ml-4">
+                            <button
+                                type="button"
+                                className="ml-3 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                onClick={() => setShowAddForm(true)}
+                            >
+                                <i className="fas fa-plus mr-2"></i>
+                                Добавить объявление
+                            </button>
+                        </div>
+                    </div>
+
+                    {showAddForm && (
+                        <div className="bg-white shadow sm:rounded-lg mb-6 slide-in">
+                            <div className="px-4 py-5 sm:p-6">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">Добавить объявление</h3>
+                                <form onSubmit={handleSubmit}>
+                                    <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+                                        <div className="sm:col-span-4">
+                                            <label htmlFor="title" className="block text-sm font-medium text-gray-700">
+                                                Заголовок
+                                            </label>
+                                            <div className="mt-1">
+                                                <input
+                                                    type="text"
+                                                    name="title"
+                                                    id="title"
+                                                    required
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                    value={newAnnouncement.title}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="sm:col-span-6">
+                                            <label htmlFor="content" className="block text-sm font-medium text-gray-700">
+                                                Содержание
+                                            </label>
+                                            <div className="mt-1">
+                                                <textarea
+                                                    id="content"
+                                                    name="content"
+                                                    rows={4}
+                                                    className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border border-gray-300 rounded-md"
+                                                    value={newAnnouncement.content}
+                                                    onChange={handleChange}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-5 flex justify-end space-x-3">
+                                        <button
+                                            type="button"
+                                            className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                            onClick={() => setShowAddForm(false)}
+                                        >
+                                            Отмена
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                        >
+                                            Опубликовать
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                        <ul className="divide-y divide-gray-200">
+                            {sortedAnnouncements.map((announcement) => (
+                                <li key={announcement.id}>
+                                    <div className="px-4 py-4 sm:px-6">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center">
+                                                {announcement.pinned && (
+                                                    <i className="fas fa-thumbtack text-primary-500 mr-2" title="Закреплено"></i>
+                                                )}
+                                                <p className={`text-sm font-medium ${announcement.completed ? 'line-through text-gray-500' : 'text-primary-600'}`}>
+                                                    {announcement.title}
+                                                </p>
+                                            </div>
+                                            <div className="ml-2 flex-shrink-0 flex space-x-2">
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={() => onTogglePin(announcement.id)}
+                                                        className="text-gray-400 hover:text-yellow-500"
+                                                        title={announcement.pinned ? "Открепить" : "Закрепить"}
+                                                    >
+                                                        <i className={`fas ${announcement.pinned ? 'fa-thumbtack text-yellow-500' : 'fa-thumbtack'}`}></i>
+                                                    </button>
+                                                )}
+                                                {announcement.author === currentUser && (
+                                                    <button
+                                                        onClick={() => onToggleStatus(announcement.id)}
+                                                        className={`${announcement.completed ? 'text-green-500 hover:text-green-700' : 'text-gray-400 hover:text-green-500'}`}
+                                                        title={announcement.completed ? "Отметить невыполненным" : "Отметить выполненным"}
+                                                    >
+                                                        <i className="fas fa-check-circle"></i>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="mt-2 sm:flex sm:justify-between">
+                                            <div className="sm:flex">
+                                                <p className={`flex items-center text-sm text-gray-500 ${announcement.completed ? 'line-through' : ''}`}>
+                                                    {announcement.content}
+                                                </p>
+                                            </div>
+                                            <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
+                                                <p>
+                                                    {announcement.author} • {formatDate(announcement.date)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            );
+        }
+
+        // Компонент структуры парламента
+        function StructureTab({ usersData }) {
+            // Группировка пользователей по отделам
+            const departments = {};
+            Object.keys(usersData).forEach(username => {
+                const user = usersData[username];
+                if (!departments[user.department]) {
+                    departments[user.department] = [];
+                }
+                departments[user.department].push({ username, ...user });
+            });
+
+            return (
+                <div className="fade-in">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Структура парламента</h2>
+                    
+                    <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
+                        <div className="px-4 py-5 sm:px-6 bg-primary-50">
+                            <h3 className="text-lg leading-6 font-medium text-primary-800">Руководство</h3>
+                        </div>
+                        <div className="border-t border-gray-200">
+                            <ul className="divide-y divide-gray-200">
+                                {departments["Руководство"] && departments["Руководство"].map(user => (
+                                    <li key={user.username}>
+                                        <div className="px-4 py-4 flex items-center sm:px-6">
+                                            <div className="min-w-0 flex-1 flex items-center">
+                                                <div className="flex-shrink-0">
+                                                    <div className="h-12 w-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-800 text-lg font-bold">
+                                                        {user.avatar}
+                                                    </div>
+                                                </div>
+                                                <div className="min-w-0 flex-1 px-4 md:grid md:grid-cols-2 md:gap-4">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-primary-600 truncate">{user.username}</p>
+                                                        <p className="mt-1 flex items-center text-sm text-gray-500">
+                                                            {user.role}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <i className="fas fa-chevron-right text-gray-400"></i>
+                                            </div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+
+                    {Object.keys(departments).filter(dept => dept !== "Руководство").map(department => (
+                        <div key={department} className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
+                            <div className="px-4 py-5 sm:px-6 bg-gray-50">
+                                <h3 className="text-lg leading-6 font-medium text-gray-900">{department}</h3>
+                            </div>
+                            <div className="border-t border-gray-200">
+                                <ul className="divide-y divide-gray-200">
+                                    {departments[department].map(user => (
+                                        <li key={user.username}>
+                                            <div className="px-4 py-4 flex items-center sm:px-6">
+                                                <div className="min-w-0 flex-1 flex items-center">
+                                                    <div className="flex-shrink-0">
+                                                        <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-800 text-sm font-bold">
+                                                            {user.username.charAt(0)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 px-4 md:grid md:grid-cols-2 md:gap-4">
+                                                        <div>
+                                                            <p className="text-sm font-medium text-gray-900 truncate">{user.username}</p>
+                                                            <p className="mt-1 flex items-center text-sm text-gray-500">
+                                                                {user.role}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <i className="fas fa-chevron-right text-gray-400"></i>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // Компонент управления (только для администраторов)
+        function ManagementTab({ isAdmin, usersData }) {
+            const [newUser, setNewUser] = React.useState({
+                username: '',
+                password: '',
+                role: 'Координатор',
+                department: ''
+            });
+
+            const handleChange = (e) => {
+                const { name, value } = e.target;
+                setNewUser({
+                    ...newUser,
+                    [name]: value
+                });
+            };
+
+            const handleAddUser = (e) => {
+                e.preventDefault();
+                // В реальном приложении здесь будет вызов API для добавления пользователя
+                alert(`Пользователь ${newUser.username} добавлен!`);
+                setNewUser({
+                    username: '',
+                    password: '',
+                    role: 'Координатор',
+                    department: ''
+                });
+            };
+
+            if (!isAdmin) {
+                return (
+                    <div className="fade-in bg-white rounded-lg shadow px-4 py-5 sm:px-6">
+                        <div className="text-center">
+                            <i className="fas fa-lock text-gray-400 text-5xl mb-4"></i>
+                            <h3 className="text-lg font-medium text-gray-900">Доступ ограничен</h3>
+                            <p className="mt-2 text-sm text-gray-500">
+                                У вас нет прав для доступа к этому разделу. Только администраторы могут управлять пользователями и ролями.
+                            </p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="fade-in">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Управление пользователями</h2>
+                    
+                    <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                        <ul className="divide-y divide-gray-200">
+                            {Object.keys(usersData).map(username => {
+                                const user = usersData[username];
+                                return (
+                                    <li key={username}>
+                                        <div className="px-4 py-4 flex items-center sm:px-6">
+                                            <div className="min-w-0 flex-1 flex items-center">
+                                                <div className="flex-shrink-0">
+                                                    <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-800 text-sm font-bold">
+                                                        {user.avatar || username.charAt(0)}
+                                                    </div>
+                                                </div>
+                                                <div className="min-w-0 flex-1 px-4 md:grid md:grid-cols-3 md:gap-4">
+                                                    <div>
+                                                        <p className="text-sm font-medium text-primary-600 truncate">{username}</p>
+                                                        <p className="mt-1 flex items-center text-sm text-gray-500">
+                                                            {user.role}
+                                                        </p>
+                                                    </div>
+                                                    <div className="hidden md:block">
+                                                        <div>
+                                                            <p className="text-sm text-gray-900">
+                                                                Отдел: {user.department}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="hidden md:block">
+                                                        <div>
+                                                            <p className="text-sm text-gray-500">
+                                                                Статус: Активен
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex space-x-2">
+                                                <button className="text-primary-600 hover:text-primary-900 text-sm font-medium">
+                                                    Изменить
+                                                </button>
+                                                <button className="text-red-600 hover:text-red-900 text-sm font-medium">
+                                                    Удалить
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </div>
+
+                    <div className="mt-8 bg-white shadow sm:rounded-lg">
+                        <div className="px-4 py-5 sm:p-6">
+                            <h3 className="text-lg leading-6 font-medium text-gray-900">Добавить пользователя</h3>
+                            <div className="mt-5">
+                                <form className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6" onSubmit={handleAddUser}>
+                                    <div className="sm:col-span-3">
+                                        <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                                            Имя пользователя
+                                        </label>
+                                        <div className="mt-1">
+                                            <input
+                                                type="text"
+                                                name="username"
+                                                id="username"
+                                                required
+                                                className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                value={newUser.username}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="sm:col-span-3">
+                                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                                            Пароль
+                                        </label>
+                                        <div className="mt-1">
+                                            <input
+                                                type="password"
+                                                name="password"
+                                                id="password"
+                                                required
+                                                className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                value={newUser.password}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="sm:col-span-3">
+                                        <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                                            Роль
+                                        </label>
+                                        <div className="mt-1">
+                                            <select
+                                                id="role"
+                                                name="role"
+                                                className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                value={newUser.role}
+                                                onChange={handleChange}
+                                            >
+                                                <option value="Координатор">Координатор</option>
+                                                <option value="Министр">Министр</option>
+                                                <option value="Администратор">Администратор</option>
+                                                <option value="Президент">Президент</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="sm:col-span-3">
+                                        <label htmlFor="department" className="block text-sm font-medium text-gray-700">
+                                            Отдел
+                                        </label>
+                                        <div className="mt-1">
+                                            <input
+                                                type="text"
+                                                name="department"
+                                                id="department"
+                                                required
+                                                className="shadow-sm focus:ring-primary-500 focus:border-primary-500 block w-full sm:text-sm border-gray-300 rounded-md"
+                                                value={newUser.department}
+                                                onChange={handleChange}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="sm:col-span-6">
+                                        <button
+                                            type="submit"
+                                            className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                        >
+                                            Добавить пользователя
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Компонент модального окна чата
+        function ChatModal({ messages, newMessage, onNewMessageChange, onSendMessage, onClose, currentUser }) {
+            const messagesEndRef = React.useRef(null);
+
+            const scrollToBottom = () => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            };
+
+            React.useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            const handleKeyPress = (e) => {
+                if (e.key === 'Enter') {
+                    onSendMessage();
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 overflow-y-auto z-50">
+                    <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+                        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+
+                        <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
+                            <div className="sm:flex sm:items-start">
+                                <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="text-lg leading-6 font-medium text-gray-900">
+                                            Общий чат
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            className="bg-white rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                            onClick={onClose}
+                                        >
+                                            <span className="sr-only">Закрыть</span>
+                                            <i className="fas fa-times h-6 w-6"></i>
+                                        </button>
+                                    </div>
+                                    <div className="mt-4">
+                                        <div className="bg-gray-50 rounded-lg p-4 h-64 overflow-y-auto">
+                                            {messages.map(message => (
+                                                <div 
+                                                    key={message.id} 
+                                                    className={`mb-3 ${message.sender === currentUser ? 'text-right' : ''}`}
+                                                >
+                                                    <div 
+                                                        className={`inline-block p-3 rounded-lg ${message.sender === currentUser ? 'bg-primary-100 text-primary-800' : 'bg-gray-200 text-gray-800'} chat-message`}
+                                                    >
+                                                        <div className="font-medium text-sm">
+                                                            {message.sender === currentUser ? 'Вы' : message.sender}
+                                                        </div>
+                                                        <div>{message.text}</div>
+                                                        <div className="text-xs text-gray-500 mt-1">
+                                                            {message.timestamp ? formatTime(message.timestamp) : 'Только что'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <div ref={messagesEndRef} />
+                                        </div>
+                                        <div className="mt-4 flex">
+                                            <input
+                                                type="text"
+                                                className="flex-1 border border-gray-300 rounded-l-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                                placeholder="Введите сообщение..."
+                                                value={newMessage}
+                                                onChange={(e) => onNewMessageChange(e.target.value)}
+                                                onKeyPress={handleKeyPress}
+                                            />
+                                            <button
+                                                type="button"
+                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-r-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                                                onClick={onSendMessage}
+                                            >
+                                                <i className="fas fa-paper-plane"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Вспомогательные функции
+        function getTabName(tabKey) {
+            const tabNames = {
+                'home': 'Главная',
+                'calendar': 'Календарь мероприятий',
+                'projects': 'Проекты участников',
+                'announcements': 'Доска объявлений',
+                'structure': 'Структура парламента',
+                'management': 'Управление пользователями'
+            };
+            return tabNames[tabKey] || tabKey;
+        }
+
+        function formatDate(dateString) {
+            const options = { day: 'numeric', month: 'long' };
+            return new Date(dateString).toLocaleDateString('ru-RU', options);
+        }
+
+        function formatTime(timestamp) {
+            if (timestamp instanceof Date) {
+                return timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            } else if (typeof timestamp === 'string') {
+                return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            } else if (timestamp && timestamp.toDate) {
+                return timestamp.toDate().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            }
+            return 'Только что';
+        }
+
+        // Рендеринг приложения
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
