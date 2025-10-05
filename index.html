@@ -547,7 +547,7 @@ const usersData = {
                     {/* Основной контент */}
                     <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
                         <div className="px-4 py-6 sm:px-0">
-                            {activeTab === 'home' && <HomeTab currentUser={currentUser} usersData={usersData} events={events} />}
+                            {activeTab === 'home' && <HomeTab currentUser={currentUser} usersData={usersData} events={events} projects={projects} />}
                             {activeTab === 'calendar' && <CalendarTab events={events} onAddEvent={addEvent} onEditEvent={editEvent} onDeleteEvent={deleteEvent} currentUser={currentUser} isAdmin={true} />}
                             {activeTab === 'projects' && <ProjectsTab projects={projects} onAddProject={addProject} onEditProject={editProject} onDeleteProject={deleteProject} onAddStep={addStepToProject} onToggleStep={toggleStepStatus} onDeleteStep={deleteStep} currentUser={currentUser} isAdmin={true} usersData={usersData} />}
                             {activeTab === 'announcements' && <AnnouncementsTab announcements={announcements} onAddAnnouncement={addAnnouncement} onToggleStatus={toggleAnnouncementStatus} onTogglePin={togglePinAnnouncement} currentUser={currentUser} isAdmin={true} />}
@@ -649,10 +649,17 @@ const usersData = {
         }
 
         // Компонент главной страницы
-        function HomeTab({ currentUser, usersData, events }) {
+        function HomeTab({ currentUser, usersData, events, projects = [] }) {
             const upcomingEvents = events.filter(event => 
                 new Date(event.date) >= new Date()
             ).slice(0, 3);
+
+            // Считаем проекты, где пользователь — руководитель или участник
+            const activeProjectsCount = projects.filter(p => {
+                const inTeam = Array.isArray(p.team) && p.team.includes(currentUser);
+                const isLead = p.lead === currentUser;
+                return inTeam || isLead;
+            }).length;
 
             return (
                 <div className="fade-in">
@@ -701,7 +708,7 @@ const usersData = {
                                     <div className="ml-5 w-0 flex-1">
                                         <dl>
                                             <dt className="text-sm font-medium text-gray-500 truncate">Активные проекты</dt>
-                                            <dd className="text-lg font-medium text-gray-900">0</dd>
+                                            <dd className="text-lg font-medium text-gray-900">{activeProjectsCount}</dd>
                                         </dl>
                                     </div>
                                 </div>
@@ -1369,16 +1376,24 @@ const usersData = {
                                             <p className="text-sm font-medium">{project.lead}</p>
                                         </div>
                                         <div className="flex -space-x-2">
-                                            {project.team && project.team.map((member, index) => (
-                                                <div 
-                                                    key={index}
-                                                    className="inline-block h-8 w-8 rounded-full bg-primary-100 text-primary-800 text-sm flex items-center justify-center font-medium border-2 border-white"
-                                                    title={member}
-                                                >
-                                                    {member.charAt(0)}
+                                            {project.team && (
+                                                <div className="flex flex-wrap gap-2">
+                                                    {project.team.map((member, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className="flex items-center bg-gray-50 px-2 py-1 rounded-lg text-sm max-w-[160px]"
+                                                        >
+                                                            <div className="flex-shrink-0 h-8 w-8 rounded-full bg-primary-100 text-primary-800 flex items-center justify-center font-medium border-2 border-white">
+                                                                {member.charAt(0)}
+                                                            </div>
+                                                            <span className="ml-2 text-gray-700 overflow-hidden whitespace-nowrap truncate">
+                                                                {member}
+                                                            </span>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ))}
-                                        </div>
+                                            )}
+                                         </div>
                                     </div>
                                     
                                     {canEditProject(project) && (
@@ -1859,6 +1874,8 @@ const usersData = {
                 messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
             };
 
+           
+
             React.useEffect(() => {
                 scrollToBottom();
             }, [messages]);
@@ -1871,6 +1888,7 @@ const usersData = {
 
             return (
                 <div className="fixed inset-0 overflow-y-auto z-50">
+
                     <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
                         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
 
@@ -1961,7 +1979,7 @@ const usersData = {
                 return timestamp.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
             } else if (typeof timestamp === 'string') {
                 return new Date(timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-            } else if (timestamp && timestamp.toDate) {
+            } else if (timestamp && typeof timestamp.toDate === 'function') {
                 return timestamp.toDate().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
             }
             return 'Только что';
