@@ -88,7 +88,9 @@ const userCredentials = {
     "Alizhan": "4Zan",
     "Akaisha": "Baky",
     "Madina": "Madi",
-    "Nuray": "93morning"
+    "Nuray": "93morning",
+    "Dinara": "4722",
+    "Alisher": "6523"
 };
 
 // Данные пользователей
@@ -105,7 +107,9 @@ const usersData = {
     "Alizhan": { role: "Министр", department: "Информация и коммуникации", avatar: "📡" },
     "Akaisha": { role: "Координатор", department: "Информация и коммуникации", avatar: "💬" },
     "Madina": { role: "Координатор", department: "Культура и творчество", avatar: "🎭" },
-    "Nuray": { role: "Координатор", department: "Наука и образование", avatar: "📚" }
+    "Nuray": { role: "Координатор", department: "Наука и образование", avatar: "📚" },
+    "Dinara": { role: "Администрация", department: "Администрация", avatar: "🛡️" },
+    "Alisher": { role: "Администрация", department: "Администрация", avatar: "⚜️" }
 };
 
         // Основной компонент приложения
@@ -1599,10 +1603,50 @@ const usersData = {
                 departments[user.department].push({ username, ...user });
             });
 
+            // Рендер специального блока "Администрация" в самом верху (если есть)
+            const adminOffice = departments["Администрация"] || [];
+
             return (
                 <div className="fade-in">
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Структура парламента</h2>
-                    
+
+                    {adminOffice.length > 0 && (
+                        <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 shadow-md overflow-hidden sm:rounded-lg mb-6 border border-yellow-200">
+                            <div className="px-4 py-5 sm:px-6 bg-yellow-50">
+                                <h3 className="text-lg leading-6 font-medium text-yellow-800">Администрация</h3>
+                                <p className="mt-1 text-sm text-yellow-700">(не администраторы системы)</p>
+                            </div>
+                            <div className="border-t border-yellow-100">
+                                <ul className="divide-y divide-yellow-100">
+                                    {adminOffice.map(user => (
+                                        <li key={user.username}>
+                                            <div className="px-4 py-4 flex items-center sm:px-6">
+                                                <div className="min-w-0 flex-1 flex items-center">
+                                                    <div className="flex-shrink-0">
+                                                        <div className="h-14 w-14 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-800 text-xl font-extrabold border-2 border-yellow-200">
+                                                            {user.avatar}
+                                                        </div>
+                                                    </div>
+                                                    <div className="min-w-0 flex-1 px-4 md:grid md:grid-cols-2 md:gap-4">
+                                                        <div>
+                                                            <p className="text-sm font-medium text-yellow-800 truncate">{user.username}</p>
+                                                            <p className="mt-1 flex items-center text-sm text-yellow-700">
+                                                                {user.role}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <i className="fas fa-star text-yellow-500"></i>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
                         <div className="px-4 py-5 sm:px-6 bg-primary-50">
                             <h3 className="text-lg leading-6 font-medium text-primary-800">Руководство</h3>
@@ -1637,7 +1681,7 @@ const usersData = {
                         </div>
                     </div>
 
-                    {Object.keys(departments).filter(dept => dept !== "Руководство").map(department => (
+                    {Object.keys(departments).filter(dept => dept !== "Руководство" && dept !== "Администрация").map(department => (
                         <div key={department} className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
                             <div className="px-4 py-5 sm:px-6 bg-gray-50">
                                 <h3 className="text-lg leading-6 font-medium text-gray-900">{department}</h3>
